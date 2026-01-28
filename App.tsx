@@ -6,37 +6,34 @@ import Services from './components/Services';
 import AISalesGenerator from './components/AISalesGenerator';
 import SalesAnalytics from './components/SalesAnalytics';
 import ImageGenerator from './components/ImageGenerator';
+import StrategySuite from './components/StrategySuite';
+import VideoGenerator from './components/VideoGenerator';
 import Contact from './components/Contact';
 import Footer from './components/Footer';
 
-// Define AIStudio interface to match existing global expectations and avoid type conflicts
+// Define AIStudio interface
 declare global {
   interface AIStudio {
     hasSelectedApiKey: () => Promise<boolean>;
     openSelectKey: () => Promise<void>;
   }
-
   interface Window {
-    // Fix: Make aistudio optional to match existing environment declarations and avoid modifier conflicts
     aistudio?: AIStudio;
   }
 }
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'home' | 'generator' | 'analytics' | 'images'>('home');
+  type Tabs = 'home' | 'generator' | 'analytics' | 'images' | 'strategy' | 'video';
+  const [activeTab, setActiveTab] = useState<Tabs>('home');
 
-  const handleNavigate = useCallback(async (tab: 'home' | 'generator' | 'analytics' | 'images') => {
-    // Ensure AI services are properly initialized with an API key if necessary
-    if (tab === 'generator' || tab === 'images') {
+  const handleNavigate = useCallback(async (tab: Tabs) => {
+    if (['generator', 'images', 'strategy', 'video'].includes(tab)) {
       if (window.aistudio) {
         try {
           const hasKey = await window.aistudio.hasSelectedApiKey();
-          if (!hasKey) {
-            await window.aistudio.openSelectKey();
-            // Guidelines: assume the key selection was successful after triggering openSelectKey() and proceed
-          }
+          if (!hasKey) await window.aistudio.openSelectKey();
         } catch (e) {
-          console.error("Error al verificar/abrir selector de clave:", e);
+          console.error("Error al verificar clave:", e);
         }
       }
     }
@@ -71,8 +68,28 @@ const App: React.FC = () => {
             <h1 className="text-4xl lg:text-5xl font-extrabold text-white mb-2 text-center tracking-tight">
               Creativos de <span className="text-blue-500">Marketing</span> AI
             </h1>
-            <p className="text-slate-400 text-center mb-12 text-lg">Genera 5 imágenes impactantes para tus campañas en segundos.</p>
+            <p className="text-slate-400 text-center mb-12 text-lg">Genera 5 imágenes y sus copies estratégicos en segundos.</p>
             <ImageGenerator />
+          </div>
+        )}
+
+        {activeTab === 'video' && (
+          <div className="container mx-auto px-4 py-12 animate-in slide-in-from-bottom-4 duration-500">
+            <h1 className="text-4xl lg:text-5xl font-extrabold text-white mb-2 text-center tracking-tight">
+              Anuncios de <span className="text-indigo-500">Video</span> AI
+            </h1>
+            <p className="text-slate-400 text-center mb-12 text-lg">Crea videos publicitarios cinematográficos con Veo 3.1.</p>
+            <VideoGenerator />
+          </div>
+        )}
+
+        {activeTab === 'strategy' && (
+          <div className="container mx-auto px-4 py-12 animate-in slide-in-from-bottom-4 duration-500">
+            <h1 className="text-4xl lg:text-5xl font-extrabold text-white mb-2 text-center tracking-tight">
+              Suite de <span className="text-blue-500">Estrategia</span> AI
+            </h1>
+            <p className="text-slate-400 text-center mb-12 text-lg">Maneja objeciones y crea contenido viral basado en psicología de ventas.</p>
+            <StrategySuite />
           </div>
         )}
 

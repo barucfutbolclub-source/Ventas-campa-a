@@ -1,4 +1,6 @@
 
+export type Language = 'es-LA' | 'en-US';
+
 export interface Service {
   id: string;
   title: string;
@@ -12,6 +14,7 @@ export interface SalesScriptRequest {
   targetAudience: string;
   keyBenefits: string[];
   tone: 'professional' | 'aggressive' | 'empathetic' | 'humorous';
+  language?: Language;
 }
 
 export interface GeneratedScript {
@@ -23,6 +26,24 @@ export interface GeneratedScript {
 export interface MarketingPack {
   imageUrl: string;
   postText: string;
+}
+
+export interface ObjectionResponse {
+  rebuttal: string;
+  psychology: string;
+  closingTip: string;
+}
+
+export interface VideoScriptScene {
+  visual: string;
+  audio: string;
+  duration: string;
+}
+
+export interface VideoScript {
+  hook: string;
+  scenes: VideoScriptScene[];
+  cta: string;
 }
 
 export interface MetricData {

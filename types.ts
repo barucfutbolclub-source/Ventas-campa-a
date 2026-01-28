@@ -20,6 +20,11 @@ export interface GeneratedScript {
   cta: string;
 }
 
+export interface MarketingPack {
+  imageUrl: string;
+  postText: string;
+}
+
 export interface MetricData {
   name: string;
   conversion: number;

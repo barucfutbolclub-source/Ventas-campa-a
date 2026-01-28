@@ -1,20 +1,22 @@
 
 import React, { useState } from 'react';
-import { generateFiveImages } from '../services/geminiService';
+import { generateFivePacks } from '../services/geminiService';
+import { MarketingPack } from '../types';
 
 const ImageGenerator: React.FC = () => {
   const [prompt, setPrompt] = useState('');
-  const [images, setImages] = useState<string[]>([]);
+  const [packs, setPacks] = useState<MarketingPack[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = useState('');
+  const [selectedPackText, setSelectedPackText] = useState<string | null>(null);
 
   const messages = [
     "Diseñando composiciones visuales...",
-    "Ajustando la iluminación publicitaria...",
-    "Generando 5 variaciones estratégicas...",
-    "Renderizando detalles de alta resolución...",
-    "Finalizando tus creativos de marketing..."
+    "Redactando copies persuasivos...",
+    "Generando 5 variantes estratégicas...",
+    "Optimizando para redes sociales...",
+    "Finalizando tus packs de marketing..."
   ];
 
   const handleGenerate = async (e: React.FormEvent) => {
@@ -23,7 +25,8 @@ const ImageGenerator: React.FC = () => {
 
     setLoading(true);
     setError(null);
-    setImages([]);
+    setPacks([]);
+    setSelectedPackText(null);
     
     let msgIndex = 0;
     const interval = setInterval(() => {
@@ -32,15 +35,19 @@ const ImageGenerator: React.FC = () => {
     }, 2500);
 
     try {
-      const urls = await generateFiveImages(prompt);
-      setImages(urls);
-      if (urls.length === 0) throw new Error("No se pudieron generar las imágenes.");
+      const results = await generateFivePacks(prompt);
+      setPacks(results);
     } catch (err: any) {
-      setError(err.message || "Ocurrió un error al generar las imágenes.");
+      setError(err.message || "Ocurrió un error al generar los packs.");
     } finally {
       clearInterval(interval);
       setLoading(false);
     }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    alert("Copy del post copiado al portapapeles!");
   };
 
   return (
@@ -50,7 +57,7 @@ const ImageGenerator: React.FC = () => {
           <input 
             type="text"
             className="flex-grow px-6 py-4 rounded-xl bg-slate-800 border border-slate-700 text-white focus:ring-2 focus:ring-blue-500 outline-none text-lg placeholder:text-slate-500"
-            placeholder="Describe tu campaña (ej. 'Estrategias de marketing para agencias inmobiliarias')..."
+            placeholder="Ej. 'Suscripción de café artesanal para oficinas'..."
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
           />
@@ -61,9 +68,9 @@ const ImageGenerator: React.FC = () => {
           >
             {loading ? (
               <span className="flex items-center gap-2">
-                <i className="fa-solid fa-circle-notch animate-spin"></i> Creando...
+                <i className="fa-solid fa-circle-notch animate-spin"></i> Creando Estrategias...
               </span>
-            ) : "Generar 5 Imágenes"}
+            ) : "Generar 5 Packs de Venta"}
           </button>
         </form>
       </div>
@@ -72,22 +79,22 @@ const ImageGenerator: React.FC = () => {
         <div className="mb-12">
           <div className="text-center mb-10">
             <h3 className="text-2xl font-bold text-white animate-pulse tracking-tight">{loadingMessage}</h3>
-            <p className="text-slate-500 mt-2">La IA está procesando 5 variaciones únicas para ti.</p>
+            <p className="text-slate-500 mt-2">Estamos creando 5 combinaciones perfectas de imagen y texto.</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="aspect-square bg-slate-900 rounded-3xl border border-slate-800 flex items-center justify-center overflow-hidden relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-transparent animate-pulse"></div>
-                <div className="flex flex-col items-center gap-4 text-slate-700">
-                  <i className="fa-solid fa-image text-4xl animate-bounce"></i>
-                  <span className="text-xs font-bold tracking-widest uppercase opacity-50">Variant {i}</span>
+              <div key={i} className="bg-slate-900 rounded-3xl border border-slate-800 p-4 space-y-4 shadow-xl">
+                <div className="aspect-square bg-slate-800 rounded-2xl animate-pulse flex items-center justify-center">
+                  <i className="fa-solid fa-image text-4xl text-slate-700"></i>
+                </div>
+                <div className="space-y-2">
+                  <div className="h-4 w-full bg-slate-800 rounded animate-pulse"></div>
+                  <div className="h-4 w-5/6 bg-slate-800 rounded animate-pulse"></div>
+                  <div className="h-4 w-4/6 bg-slate-800 rounded animate-pulse"></div>
                 </div>
               </div>
             ))}
-            <div className="aspect-square bg-slate-800/20 rounded-3xl border border-dashed border-slate-800 flex items-center justify-center">
-              <i className="fa-solid fa-wand-sparkles text-slate-700 text-3xl"></i>
-            </div>
           </div>
         </div>
       )}
@@ -99,64 +106,72 @@ const ImageGenerator: React.FC = () => {
         </div>
       )}
 
-      {images.length > 0 && (
+      {packs.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-in fade-in duration-1000">
-          {images.map((url, idx) => (
-            <div key={idx} className="group relative bg-slate-900 rounded-3xl overflow-hidden shadow-2xl transition-all duration-500 border border-slate-800 hover:border-blue-500/50">
-              <div className="aspect-square overflow-hidden">
+          {packs.map((pack, idx) => (
+            <div key={idx} className="flex flex-col bg-slate-900 rounded-3xl overflow-hidden shadow-2xl transition-all duration-500 border border-slate-800 hover:border-blue-500/50">
+              <div className="relative aspect-square overflow-hidden group">
                 <img 
-                  src={url} 
-                  alt={`Marketing ad ${idx + 1}`} 
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                  src={pack.imageUrl} 
+                  alt={`Marketing pack ${idx + 1}`} 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                 />
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-6">
-                <p className="text-white font-bold mb-4">Variante Publicitaria #{idx + 1}</p>
-                <div className="flex gap-2">
-                  <a 
-                    href={url} 
-                    download={`marketing-ad-${idx+1}.png`}
-                    className="flex-grow bg-white text-slate-900 py-2 rounded-lg text-center font-bold text-sm hover:bg-blue-50 transition-colors"
-                  >
-                    Descargar
-                  </a>
-                  <button 
-                    onClick={() => window.open(url, '_blank')}
-                    className="w-10 h-10 bg-white/10 backdrop-blur-md text-white rounded-lg flex items-center justify-center hover:bg-white/20"
-                  >
-                    <i className="fa-solid fa-expand"></i>
-                  </button>
+                <div className="absolute top-4 left-4 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider shadow-lg">
+                  Pack #{idx + 1}
                 </div>
               </div>
-              <div className="absolute top-4 left-4 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider shadow-lg">
-                AI Generated
+              
+              <div className="p-6 flex flex-col flex-grow">
+                <div className="mb-4">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Copy del Post</span>
+                </div>
+                <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-4 text-sm text-slate-300 mb-6 flex-grow max-h-48 overflow-y-auto font-light leading-relaxed scrollbar-hide">
+                  {pack.postText}
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <button 
+                    onClick={() => copyToClipboard(pack.postText)}
+                    className="flex items-center justify-center gap-2 bg-slate-800 text-white py-3 rounded-xl font-bold text-sm hover:bg-slate-700 transition-colors active:scale-95"
+                  >
+                    <i className="fa-solid fa-copy"></i> Copy Post
+                  </button>
+                  <a 
+                    href={pack.imageUrl} 
+                    download={`pack-marketing-${idx+1}.png`}
+                    className="flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-500 transition-colors active:scale-95"
+                  >
+                    <i className="fa-solid fa-download"></i> Imagen
+                  </a>
+                </div>
               </div>
             </div>
           ))}
-          <div className="bg-blue-600 rounded-3xl p-8 flex flex-col justify-center items-center text-center text-white shadow-2xl group hover:-translate-y-2 transition-transform">
+          
+          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-8 flex flex-col justify-center items-center text-center text-white shadow-2xl group cursor-pointer" onClick={() => { setPacks([]); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
             <i className="fa-solid fa-wand-magic-sparkles text-4xl mb-4 group-hover:rotate-12 transition-transform"></i>
-            <h4 className="text-xl font-bold mb-2">¿Necesitas más?</h4>
-            <p className="text-blue-100 text-sm mb-6">Prueba una descripción diferente para obtener variaciones totalmente nuevas.</p>
-            <button 
-              onClick={() => {
-                setImages([]);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className="bg-white text-blue-600 px-6 py-2 rounded-xl font-bold hover:bg-blue-50 transition-colors shadow-lg"
-            >
-              Nuevo Intento
-            </button>
+            <h4 className="text-xl font-bold mb-2">¿Nueva Estrategia?</h4>
+            <p className="text-blue-100 text-sm mb-6">Refina tu descripción para obtener 5 nuevos packs de contenido.</p>
+            <div className="bg-white text-blue-600 px-6 py-2 rounded-xl font-bold group-hover:scale-105 transition-transform">
+              Reiniciar Generador
+            </div>
           </div>
         </div>
       )}
 
-      {!loading && images.length === 0 && !error && (
-        <div className="text-center py-20 bg-slate-900/30 rounded-3xl border-2 border-dashed border-slate-800">
+      {selectedPackText && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
+           {/* Simple Modal logic could go here if needed, but the current grid layout is very effective */}
+        </div>
+      )}
+
+      {!loading && packs.length === 0 && !error && (
+        <div className="text-center py-24 bg-slate-900/30 rounded-3xl border-2 border-dashed border-slate-800">
           <div className="w-20 h-20 bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-600 text-3xl shadow-2xl">
-            <i className="fa-solid fa-images"></i>
+            <i className="fa-solid fa-rocket"></i>
           </div>
-          <h3 className="text-xl font-bold text-slate-300 mb-2">Tu galería está vacía</h3>
-          <p className="text-slate-500">Ingresa una descripción arriba para generar tus primeros 5 anuncios.</p>
+          <h3 className="text-xl font-bold text-slate-300 mb-2">Prepárate para el Despegue</h3>
+          <p className="text-slate-500">Genera 5 variantes de contenido listas para publicar en tus redes.</p>
         </div>
       )}
     </div>

@@ -1,9 +1,8 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { SalesScriptRequest, GeneratedScript } from "../types";
+import { SalesScriptRequest, GeneratedScript, MarketingPack } from "../types";
 
 export async function generateSalesScript(request: SalesScriptRequest): Promise<GeneratedScript> {
-  // Guidelines: Create a new instance right before the call to use the latest API key
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `Actúa como un experto mundial en copywriting y psicología de ventas.
     Genera una estructura de ventas altamente persuasiva para el siguiente producto:
@@ -32,10 +31,8 @@ export async function generateSalesScript(request: SalesScriptRequest): Promise<
       }
     });
 
-    // Use .text property directly as per guidelines
     return JSON.parse(response.text || "{}") as GeneratedScript;
   } catch (error: any) {
-    // If request fails with key issue, prompt for key selection as per guidelines
     if (error.message?.includes("Requested entity was not found.") && window.aistudio) {
       await window.aistudio.openSelectKey();
     }
@@ -44,15 +41,27 @@ export async function generateSalesScript(request: SalesScriptRequest): Promise<
   }
 }
 
-export async function generateSingleImage(prompt: string): Promise<string> {
+export async function generateMarketingPack(prompt: string): Promise<MarketingPack> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  // Solicitamos el texto primero para tener contexto y luego la imagen
+  const textPrompt = `Genera un post de redes sociales (Instagram/LinkedIn) altamente persuasivo basado en este concepto: "${prompt}". 
+  Incluye un gancho inicial, el valor principal y un CTA claro. Añade 3-5 hashtags relevantes. Idioma: Español.`;
+
   try {
-    const response = await ai.models.generateContent({
+    const textResponse = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: textPrompt
+    });
+
+    const postText = textResponse.text || "";
+
+    const imageResponse = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
         parts: [
           {
-            text: `Imagen publicitaria profesional: ${prompt}. Estilo: Marketing digital moderno, 4k, iluminación cinematográfica, minimalista, exitoso. Sin texto.`,
+            text: `Professional marketing visual: ${prompt}. Style: High-end commercial photography, 4k, cinematic lighting, modern marketing aesthetic. No text on image.`,
           },
         ],
       },
@@ -60,18 +69,18 @@ export async function generateSingleImage(prompt: string): Promise<string> {
         imageConfig: {
           aspectRatio: "1:1"
         }
-        // DO NOT set responseMimeType or responseSchema for nano banana series models
       },
     });
 
-    // Guidelines: Iterate through all parts to find the image part, do not assume it is the first part.
-    const part = response.candidates?.[0]?.content?.parts.find(p => p.inlineData);
+    const part = imageResponse.candidates?.[0]?.content?.parts.find(p => p.inlineData);
     if (part?.inlineData) {
-      return `data:image/png;base64,${part.inlineData.data}`;
+      return {
+        imageUrl: `data:image/png;base64,${part.inlineData.data}`,
+        postText: postText
+      };
     }
-    throw new Error("Fallo en la generación de imagen");
+    throw new Error("Fallo en la generación de imagen del pack");
   } catch (error: any) {
-    // Handle API key errors
     if (error.message?.includes("Requested entity was not found.") && window.aistudio) {
       await window.aistudio.openSelectKey();
     }
@@ -79,24 +88,23 @@ export async function generateSingleImage(prompt: string): Promise<string> {
   }
 }
 
-export async function generateFiveImages(prompt: string): Promise<string[]> {
+export async function generateFivePacks(prompt: string): Promise<MarketingPack[]> {
   const variations = [
-    `${prompt} - Enfoque corporativo y serio`,
-    `${prompt} - Enfoque dinámico y creativo`,
-    `${prompt} - Enfoque minimalista y limpio`,
-    `${prompt} - Enfoque tecnológico y futurista`,
-    `${prompt} - Enfoque humano y emocional`
+    `${prompt} - Estilo minimalista y elegante`,
+    `${prompt} - Estilo energético y vibrante`,
+    `${prompt} - Estilo profesional y corporativo`,
+    `${prompt} - Estilo creativo y disruptivo`,
+    `${prompt} - Estilo emocional y cercano`
   ];
 
-  // Ejecución paralela para mayor velocidad
   const results = await Promise.all(
-    variations.map(v => generateSingleImage(v).catch(err => {
-      console.warn("Error en una variante:", err);
+    variations.map(v => generateMarketingPack(v).catch(err => {
+      console.warn("Error en un pack:", err);
       return null;
     }))
   );
 
-  const filtered = results.filter((r): r is string => r !== null);
-  if (filtered.length === 0) throw new Error("No se pudo generar ninguna imagen. Reintenta.");
+  const filtered = results.filter((r): r is MarketingPack => r !== null);
+  if (filtered.length === 0) throw new Error("No se pudo generar ningún pack. Reintenta.");
   return filtered;
 }

@@ -1,24 +1,17 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { generateFivePacks } from '../services/geminiService';
-import { MarketingPack } from '../types';
+import { MarketingPack, MarketingGeneration } from '../types';
 
 const ImageGenerator: React.FC = () => {
   const [prompt, setPrompt] = useState('');
   const [packs, setPacks] = useState<MarketingPack[]>([]);
+  const [history, setHistory] = useState<MarketingGeneration[]>([]);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [loadingMessage, setLoadingMessage] = useState('');
   const [uploadedImage, setUploadedImage] = useState<{ data: string, mimeType: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const messages = [
-    "Corrigiendo ortografía y optimizando tu propuesta de valor...",
-    "Analizando tu imagen de referencia para mantener la estética...",
-    "Redactando 5 variaciones de copy persuasivo...",
-    "Renderizando creativos publicitarios de alta gama...",
-    "Asegurando que cada pack esté listo para convertir..."
-  ];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -26,10 +19,7 @@ const ImageGenerator: React.FC = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = (reader.result as string).split(',')[1];
-        setUploadedImage({
-          data: base64String,
-          mimeType: file.type
-        });
+        setUploadedImage({ data: base64String, mimeType: file.type });
       };
       reader.readAsDataURL(file);
     }
@@ -40,228 +30,183 @@ const ImageGenerator: React.FC = () => {
     if (!prompt && !uploadedImage) return;
 
     setLoading(true);
+    setProgress(0);
     setError(null);
     setPacks([]);
     
-    let msgIndex = 0;
-    const interval = setInterval(() => {
-      setLoadingMessage(messages[msgIndex % messages.length]);
-      msgIndex++;
-    }, 4500);
-
     try {
-      const results = await generateFivePacks(prompt || "Innovación en Ventas Digitales", uploadedImage || undefined);
-      if (results.length === 0) {
-        throw new Error("No se pudieron generar packs. Verifica tu conexión o cuota de API.");
-      }
+      const results = await generateFivePacks(
+        prompt || "Producto Premium", 
+        (idx) => setProgress(idx), 
+        uploadedImage || undefined
+      );
+      
       setPacks(results);
+      
+      // Añadir al historial
+      const newGen: MarketingGeneration = {
+        id: crypto.randomUUID(),
+        timestamp: Date.now(),
+        prompt: prompt || "Generación Visual",
+        packs: results
+      };
+      
+      setHistory(prev => [newGen, ...prev].slice(0, 10));
     } catch (err: any) {
-      let errorMessage = "Error inesperado al generar los creativos.";
-      if (err.message?.includes("RESOURCE_EXHAUSTED") || err.message?.includes("429")) {
-        errorMessage = "Cuota de API agotada (429). Por favor, intenta de nuevo en unos minutos o usa una clave con más crédito.";
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      setError(errorMessage);
+      setError(err.message);
     } finally {
-      clearInterval(interval);
       setLoading(false);
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    alert("¡Copy de ventas copiado!");
+  const loadFromHistory = (gen: MarketingGeneration) => {
+    setPacks(gen.packs);
+    setPrompt(gen.prompt);
+    window.scrollTo({ top: 400, behavior: 'smooth' });
   };
 
-  const removeUploadedImage = () => {
-    setUploadedImage(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    alert("¡Texto copiado!");
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
-      {/* Input Module */}
-      <div className="bg-slate-900 p-8 rounded-3xl shadow-2xl border border-slate-800 mb-12 relative overflow-hidden">
-        {/* Subtle correction indicator */}
-        <div className="absolute top-0 right-0 p-4">
-           <span className="flex items-center gap-2 text-[10px] font-black text-blue-400 bg-blue-500/10 px-4 py-1.5 rounded-full border border-blue-500/20 tracking-tighter shadow-xl">
-             <i className="fa-solid fa-sparkles animate-pulse"></i>
-             OPTIMIZACIÓN ORTOGRÁFICA AI
-           </span>
-        </div>
-
-        <form onSubmit={handleGenerate} className="space-y-6">
-          <div className="flex flex-col lg:flex-row gap-10">
-            {/* Image Reference Section */}
-            <div className="lg:w-1/3">
-              <label className="block text-sm font-bold text-slate-500 mb-4 uppercase tracking-[0.2em]">Referencia Visual</label>
-              {uploadedImage ? (
-                <div className="relative group aspect-square rounded-3xl overflow-hidden border-2 border-blue-600/30 shadow-2xl">
-                  <img 
-                    src={`data:${uploadedImage.mimeType};base64,${uploadedImage.data}`} 
-                    className="w-full h-full object-cover" 
-                    alt="Referencia de usuario" 
-                  />
-                  <div className="absolute inset-0 bg-slate-900/80 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center p-6 text-center">
-                    <p className="text-xs text-slate-300 mb-4 font-medium italic">Esta imagen guiará la composición de tus nuevos creativos.</p>
-                    <button 
-                      type="button"
-                      onClick={removeUploadedImage}
-                      className="bg-rose-600 text-white px-6 py-2 rounded-full font-bold hover:bg-rose-700 transition-colors shadow-lg"
-                    >
-                      <i className="fa-solid fa-trash-can mr-2"></i> Eliminar
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="aspect-square rounded-3xl border-2 border-dashed border-slate-700 bg-slate-800/20 hover:border-blue-500/50 hover:bg-slate-800/40 transition-all cursor-pointer flex flex-col items-center justify-center text-slate-500 group relative overflow-hidden"
+    <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8">
+      
+      {/* Sidebar Historial */}
+      <div className="lg:w-1/4 space-y-4 order-2 lg:order-1">
+        <div className="bg-slate-900/50 p-6 rounded-3xl border border-slate-800">
+          <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+            <i className="fa-solid fa-clock-rotate-left"></i> Historial Reciente
+          </h3>
+          
+          <div className="space-y-3">
+            {history.length === 0 ? (
+              <p className="text-xs text-slate-600 italic py-4 text-center">No hay generaciones previas</p>
+            ) : (
+              history.map((item) => (
+                <button 
+                  key={item.id}
+                  onClick={() => loadFromHistory(item)}
+                  className="w-full p-4 rounded-2xl bg-slate-800/40 border border-slate-800 hover:border-blue-500/50 hover:bg-slate-800 text-left transition-all group"
                 >
-                  <div className="w-20 h-20 bg-slate-900 border border-slate-800 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-blue-600/10 transition-all duration-500">
-                    <i className="fa-solid fa-image-portrait text-3xl group-hover:text-blue-400"></i>
-                  </div>
-                  <span className="text-sm font-bold text-slate-400 tracking-tight">Sube una Imagen</span>
-                  <span className="text-[10px] font-medium opacity-40 mt-1 uppercase tracking-widest">Guía para el estilo IA</span>
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    accept="image/*" 
-                    onChange={handleFileChange} 
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Prompt Section */}
-            <div className="lg:w-2/3 flex flex-col justify-center">
-              <label className="block text-sm font-bold text-slate-500 mb-4 uppercase tracking-[0.2em]">¿Qué producto vamos a vender?</label>
-              <textarea 
-                className="w-full flex-grow px-7 py-6 rounded-3xl bg-slate-800/50 border border-slate-700 text-white focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-lg placeholder:text-slate-600 resize-none min-h-[220px] transition-all"
-                placeholder="Ej: Zapatillas de running ultra ligeras para maratonistas. No importa si tienes errores ortográficos, la IA los corregirá antes de generar tus posts."
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-              />
-              <button 
-                type="submit"
-                disabled={loading || (!prompt && !uploadedImage)}
-                className={`mt-8 w-full py-6 rounded-3xl font-black text-white shadow-2xl transition-all text-xl tracking-tight ${loading ? 'bg-slate-700 cursor-not-allowed' : 'bg-gradient-to-r from-blue-700 to-blue-600 hover:from-blue-600 hover:to-blue-500 active:scale-[0.97] hover:shadow-blue-900/40'}`}
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-4">
-                    <i className="fa-solid fa-spinner animate-spin"></i> {loadingMessage}
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center gap-3">
-                    <i className="fa-solid fa-bolt-lightning"></i> Generar Campaña de Ventas
-                  </span>
-                )}
-              </button>
-            </div>
+                  <p className="text-[10px] text-slate-500 mb-1">
+                    {new Date(item.timestamp).toLocaleTimeString()}
+                  </p>
+                  <p className="text-sm font-bold text-slate-300 truncate group-hover:text-white">
+                    {item.prompt}
+                  </p>
+                </button>
+              ))
+            )}
           </div>
-        </form>
+        </div>
       </div>
 
-      {/* Loading Skeleton Grid */}
-      {loading && (
-        <div className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-slate-900 rounded-[2.5rem] border border-slate-800 p-5 space-y-6">
-                <div className="aspect-square bg-slate-800 rounded-3xl animate-pulse"></div>
-                <div className="space-y-3">
-                  <div className="h-4 w-full bg-slate-800 rounded-full animate-pulse"></div>
-                  <div className="h-4 w-3/4 bg-slate-800 rounded-full animate-pulse"></div>
-                  <div className="h-4 w-5/6 bg-slate-800 rounded-full animate-pulse"></div>
+      {/* Main Panel */}
+      <div className="lg:w-3/4 space-y-8 order-1 lg:order-2">
+        <div className="bg-slate-900 p-8 rounded-3xl shadow-2xl border border-slate-800 relative overflow-hidden">
+          <form onSubmit={handleGenerate} className="space-y-6">
+            <div className="flex flex-col md:flex-row gap-8">
+              <div className="md:w-1/3">
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`aspect-square rounded-3xl border-2 border-dashed transition-all cursor-pointer flex flex-col items-center justify-center relative overflow-hidden ${uploadedImage ? 'border-blue-500/50' : 'border-slate-700 hover:border-slate-500 bg-slate-800/20'}`}
+                >
+                  {uploadedImage ? (
+                    <>
+                      <img src={`data:${uploadedImage.mimeType};base64,${uploadedImage.data}`} className="w-full h-full object-cover" alt="Ref" />
+                      <div className="absolute inset-0 bg-black/60 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <span className="text-xs font-bold text-white">CAMBIAR</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center p-4">
+                      <i className="fa-solid fa-cloud-arrow-up text-2xl text-slate-600 mb-2"></i>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase">Referencia de Estilo</p>
+                    </div>
+                  )}
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
 
-      {error && (
-        <div className="bg-rose-950/20 text-rose-400 p-8 rounded-3xl border border-rose-900/40 text-center mb-10 shadow-2xl animate-in zoom-in duration-300">
-          <i className="fa-solid fa-circle-exclamation text-3xl mb-4"></i>
-          <p className="font-bold text-lg">{error}</p>
-          <p className="text-xs text-rose-500 mt-2 font-medium italic">Sugerencia: Intenta usar una clave de API con facturación habilitada en Google AI Studio.</p>
-        </div>
-      )}
-
-      {/* Results Display */}
-      {packs.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-          {packs.map((pack, idx) => (
-            <div key={idx} className="flex flex-col bg-slate-900 rounded-[2.5rem] overflow-hidden shadow-[0_35px_60px_-15px_rgba(0,0,0,0.5)] border border-slate-800 hover:border-blue-500/30 transition-all duration-500 group hover:-translate-y-2">
-              {/* Creative Thumbnail */}
-              <div className="relative aspect-square overflow-hidden">
-                <img 
-                  src={pack.imageUrl} 
-                  alt={`Opción estratégica ${idx + 1}`} 
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[2000ms] ease-out"
+              <div className="md:w-2/3 flex flex-col">
+                <label className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">¿Qué quieres vender?</label>
+                <textarea 
+                  className="flex-grow p-6 rounded-2xl bg-slate-800 border border-slate-700 text-white focus:ring-2 focus:ring-blue-600 outline-none resize-none min-h-[140px]"
+                  placeholder="Describe tu producto o servicio con detalle..."
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
                 />
-                <div className="absolute top-6 left-6 bg-slate-900/90 backdrop-blur-md text-white text-[9px] font-black px-4 py-2 rounded-full uppercase tracking-[0.2em] shadow-2xl border border-white/10">
-                  ESTRATEGIA #{idx + 1}
-                </div>
               </div>
-              
-              {/* Copy Area */}
-              <div className="p-8 flex flex-col flex-grow bg-slate-900 relative">
-                <div className="mb-4 flex items-center justify-between">
-                   <h5 className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Copy de Alta Conversión</h5>
-                   <i className="fa-solid fa-quote-right text-slate-800 text-2xl"></i>
+            </div>
+
+            <button 
+              type="submit"
+              disabled={loading || (!prompt && !uploadedImage)}
+              className={`w-full py-5 rounded-2xl font-black text-white transition-all shadow-xl ${loading ? 'bg-slate-800 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 active:scale-95'}`}
+            >
+              {loading ? (
+                <div className="flex items-center justify-center gap-3">
+                  <div className="flex gap-1">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className={`w-2 h-2 rounded-full ${i < progress ? 'bg-blue-500' : 'bg-slate-700 animate-pulse'}`}></div>
+                    ))}
+                  </div>
+                  <span>Generando Variante {progress + 1} de 5...</span>
                 </div>
-                
-                <div className="bg-slate-950/60 rounded-2xl p-6 text-[13px] text-slate-300 mb-8 flex-grow max-h-56 overflow-y-auto leading-relaxed border border-slate-800 font-medium scrollbar-hide">
+              ) : (
+                'GENERAR PACK ESTRATÉGICO'
+              )}
+            </button>
+          </form>
+        </div>
+
+        {error && (
+          <div className="bg-rose-950/20 border border-rose-900/40 p-6 rounded-2xl text-center">
+            <p className="text-rose-400 font-bold">{error}</p>
+          </div>
+        )}
+
+        {/* Galería de Resultados */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {packs.map((pack, idx) => (
+            <div key={idx} className="bg-slate-900 rounded-[2rem] overflow-hidden border border-slate-800 shadow-2xl animate-in zoom-in duration-500">
+              <div className="aspect-square relative">
+                <img src={pack.imageUrl} className="w-full h-full object-cover" alt="Ad" />
+                <div className="absolute top-4 left-4 bg-blue-600 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase shadow-lg">Variante {idx + 1}</div>
+              </div>
+              <div className="p-8 space-y-6">
+                <div className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800 text-sm text-slate-400 leading-relaxed max-h-40 overflow-y-auto">
                   {pack.postText}
                 </div>
-                
-                <div className="space-y-4 mt-auto">
-                  <div className="grid grid-cols-2 gap-4">
-                    <button 
-                      onClick={() => copyToClipboard(pack.postText)}
-                      className="flex items-center justify-center gap-3 bg-slate-800 text-white py-4 rounded-2xl font-black text-xs hover:bg-slate-700 transition-all active:scale-95 border border-slate-700 hover:border-slate-600"
-                    >
-                      <i className="fa-solid fa-copy"></i> COPIAR TEXTO
-                    </button>
-                    <a 
-                      href={pack.imageUrl} 
-                      download={`salesmaster-pack-${idx+1}.png`}
-                      className="flex items-center justify-center gap-3 bg-blue-600 text-white py-4 rounded-2xl font-black text-xs hover:bg-blue-500 transition-all active:scale-95 shadow-lg shadow-blue-900/20"
-                    >
-                      <i className="fa-solid fa-download"></i> IMAGEN
-                    </a>
-                  </div>
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => copyToClipboard(pack.postText)}
+                    className="flex-1 py-3 bg-slate-800 rounded-xl text-[10px] font-black hover:bg-slate-700 transition-colors"
+                  >
+                    COPIAR COPY
+                  </button>
+                  <a 
+                    href={pack.imageUrl} 
+                    download={`marketing-ad-${idx}.png`}
+                    className="flex-1 py-3 bg-blue-600 rounded-xl text-[10px] font-black text-center hover:bg-blue-500 transition-colors"
+                  >
+                    DESCARGAR
+                  </a>
                 </div>
               </div>
             </div>
           ))}
-          
-          {/* Reset Action Card */}
-          <div className="bg-slate-800/10 rounded-[2.5rem] p-10 border-4 border-dashed border-slate-800/50 flex flex-col justify-center items-center text-center text-slate-600 hover:border-blue-500/30 hover:bg-blue-600/[0.02] transition-all cursor-pointer group" onClick={() => { setPacks([]); removeUploadedImage(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
-            <div className="w-20 h-20 rounded-full border-2 border-slate-800 flex items-center justify-center mb-6 group-hover:rotate-[-180deg] group-hover:border-blue-500/30 transition-all duration-700">
-               <i className="fa-solid fa-rotate text-3xl group-hover:text-blue-500"></i>
-            </div>
-            <h4 className="text-2xl font-black mb-3 text-slate-300 tracking-tight">¿Otra Estrategia?</h4>
-            <p className="text-sm font-medium text-slate-500 max-w-[200px]">Haz clic para limpiar y crear una nueva campaña publicitaria.</p>
-          </div>
         </div>
-      )}
 
-      {/* Empty State */}
-      {!loading && packs.length === 0 && !error && (
-        <div className="text-center py-28 bg-slate-900/20 rounded-[3rem] border-2 border-dashed border-slate-800/40">
-          <div className="w-24 h-24 bg-slate-900 rounded-3xl flex items-center justify-center mx-auto mb-8 text-slate-700 text-4xl shadow-inner border border-slate-800 rotate-3 hover:rotate-0 transition-transform duration-500">
-            <i className="fa-solid fa-wand-magic-sparkles text-blue-600/50"></i>
+        {!loading && packs.length === 0 && (
+          <div className="py-20 text-center border-2 border-dashed border-slate-800 rounded-[3rem] opacity-30">
+             <i className="fa-solid fa-wand-sparkles text-6xl mb-6"></i>
+             <p className="text-xl font-bold">Lanza tu próxima campaña en segundos</p>
           </div>
-          <h3 className="text-2xl font-black text-slate-200 mb-3 tracking-tight">Tu Especialista en Ventas AI</h3>
-          <p className="text-slate-500 max-w-md mx-auto text-lg font-medium leading-relaxed">
-            Sube una imagen de referencia (opcional) y cuéntanos qué vendes. Generaremos 5 propuestas visuales y de texto listas para pautar.
-          </p>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

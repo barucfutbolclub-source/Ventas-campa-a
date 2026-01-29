@@ -20,9 +20,23 @@ export interface GeneratedScript {
   cta: string;
 }
 
+export interface SalesHistoryItem {
+  id: string;
+  timestamp: number;
+  request: SalesScriptRequest;
+  result: GeneratedScript;
+}
+
 export interface MarketingPack {
   imageUrl: string;
   postText: string;
+}
+
+export interface MarketingGeneration {
+  id: string;
+  timestamp: number;
+  prompt: string;
+  packs: MarketingPack[];
 }
 
 export interface ObjectionResponse {

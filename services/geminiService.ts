@@ -1,102 +1,63 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { SalesScriptRequest, GeneratedScript, MarketingPack, ObjectionResponse, VideoScript } from "../types";
 
-// Generamos una nueva instancia en cada llamada para asegurar el uso de la API KEY más reciente
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-/**
- * Manejador centralizado de errores de la API.
- */
 function handleApiError(error: any) {
   const message = error.message || "";
-  const status = error.status || 0;
-  
-  console.error("Detalle del Error de API:", { message, status, full: error });
-
-  // Error 403 o PERMISSION_DENIED: Problemas de permisos del proyecto o facturación
-  if (message.includes("PERMISSION_DENIED") || message.includes("403") || message.includes("caller does not have permission")) {
-    if (window.aistudio) {
-      alert("Error de Permisos (403): Tu proyecto actual no tiene permisos para este modelo. Asegúrate de usar un proyecto con facturación habilitada para modelos avanzados.");
-      window.aistudio.openSelectKey();
-    }
-    return "Error de permisos: El proyecto no está autorizado para usar este modelo.";
+  if (message.includes("PERMISSION_DENIED") || message.includes("403")) {
+    if (window.aistudio) window.aistudio.openSelectKey();
+    return "Error de permisos: Revisa tu facturación en AI Studio.";
   }
-
-  // Error 404 o Requested entity was not found: Re-seleccionar llave
-  if (message.includes("Requested entity was not found.") || message.includes("404")) {
-    if (window.aistudio) {
-      window.aistudio.openSelectKey();
-    }
-    return "Modelo no encontrado o llave inválida.";
-  }
-  
   if (message.includes("RESOURCE_EXHAUSTED") || message.includes("429")) {
-    return "Cuota de API agotada (429). Por favor, espera unos minutos o usa un proyecto con mayor límite.";
+    return "Servidores saturados. Reintentando con prioridad...";
   }
-
-  return message || "Ocurrió un error inesperado en la comunicación con la IA.";
+  return "Error de red. Por favor, reintenta.";
 }
 
-async function withRetry<T>(fn: () => Promise<T>, maxRetries: number = 3): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, maxRetries: number = 4): Promise<T> {
   let lastError: any;
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await fn();
     } catch (error: any) {
       lastError = error;
-      const status = error.status || (error.message?.includes('429') ? 429 : 0);
-      
-      // Si es cuota agotada o error de servidor, reintentamos
-      if (status === 429 || status >= 500) {
-        const waitTime = Math.pow(2, i) * 2000;
-        await delay(waitTime);
+      if (error.message?.includes('429')) {
+        const wait = Math.pow(2, i) * 2000 + Math.random() * 1000;
+        console.warn(`Reintentando en ${Math.round(wait)}ms...`);
+        await delay(wait);
         continue;
       }
-      
-      // Si es un error de permisos (403), no reintentamos y disparamos el selector
-      const handledMessage = handleApiError(error);
-      throw new Error(handledMessage);
+      throw new Error(handleApiError(error));
     }
   }
-  throw new Error(handleApiError(lastError));
+  throw new Error("La API de Google no responde tras varios reintentos. Espera un minuto.");
 }
 
-async function internalSanitize(text: string): Promise<string> {
-  if (!text || text.length < 5) return text;
-  
-  try {
-    const ai = getAI();
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `Actúa como un corrector de estilo experto. Corrige la ortografía y gramática del siguiente texto en español, asegurándote de que suene profesional pero persuasivo. Devuelve exclusivamente el texto corregido: "${text}"`,
-      config: { temperature: 0.1 }
-    });
-    return response.text?.trim() || text;
-  } catch {
-    return text;
+/**
+ * Limpia el texto para asegurar que solo quede el JSON
+ */
+function cleanJsonResponse(text: string): string {
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start !== -1 && end !== -1) {
+    return text.substring(start, end + 1);
   }
+  return text;
 }
 
 export async function generateSalesScript(request: SalesScriptRequest): Promise<GeneratedScript> {
-  const cleanName = await internalSanitize(request.productName);
-  
   return withRetry(async () => {
     const ai = getAI();
-    const prompt = `Actúa como un especialista en copywriting de respuesta directa y psicología del consumidor.
-      Genera un guion de ventas de alto impacto para:
-      Producto: ${cleanName}
-      Audiencia: ${request.targetAudience}
-      Beneficios Clave: ${request.keyBenefits.join(", ")}
-      Tono: ${request.tone}
-
-      Utiliza una estructura de ventas probada (como AIDA o PAS). El resultado debe ser en español y estar diseñado para MAXIMIZAR CONVERSIONES.`;
-
-    const response = await ai.models.generateContent({
+    const response = (await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: prompt,
+      contents: `Senior Copywriter Pro: Crea una estrategia de venta de alto impacto para "${request.productName}". 
+        Audiencia: ${request.targetAudience}. 
+        Beneficios: ${request.keyBenefits.join(", ")}. 
+        Tono: ${request.tone}. 
+        En ESPAÑOL. Devuelve EXCLUSIVAMENTE un objeto JSON con las claves: headline, body, cta.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -109,58 +70,66 @@ export async function generateSalesScript(request: SalesScriptRequest): Promise<
           required: ["headline", "body", "cta"]
         }
       }
-    });
+    })) as GenerateContentResponse;
 
-    return JSON.parse(response.text || "{}") as GeneratedScript;
+    const rawText = response.text || "{}";
+    try {
+      return JSON.parse(cleanJsonResponse(rawText)) as GeneratedScript;
+    } catch (e) {
+      console.error("Error parseando JSON:", rawText);
+      throw new Error("La IA devolvió un formato incorrecto. Reintentando...");
+    }
   });
 }
 
-export async function generateMarketingVideo(productName: string): Promise<string> {
-  const cleanName = await internalSanitize(productName);
-  
-  return withRetry(async () => {
-    const ai = getAI();
-    const prompt = `A cinematic, high-end professional commercial video for "${cleanName}". 
-    The video shows a modern, sleek workspace with high-tech elements. 
-    Text overlays like 'Ventas Optimizadas' and 'Crecimiento Exponencial' appear in a smooth, professional font. 
-    1080p resolution, shallow depth of field, elegant motion graphics.`;
+export async function generateMarketingPack(userInput: string, style: string, referenceImage?: { data: string, mimeType: string }): Promise<MarketingPack> {
+  const ai = getAI();
+  const textResponse = (await withRetry(() => ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Marketing Specialist: Crea un post persuasivo corto para "${userInput}" con estilo "${style}". En español.`
+  }))) as GenerateContentResponse;
 
-    let operation = await ai.models.generateVideos({
-      model: 'veo-3.1-fast-generate-preview',
-      prompt: prompt,
-      config: {
-        numberOfVideos: 1,
-        resolution: '1080p',
-        aspectRatio: '16:9'
-      }
-    });
+  const imageParts: any[] = [{ text: `High-end commercial photography, ${style} aesthetic. Subject: ${userInput}. 4k.` }];
+  if (referenceImage) {
+    imageParts.push({ inlineData: { data: referenceImage.data, mimeType: referenceImage.mimeType } });
+  }
 
-    while (!operation.done) {
-      await delay(10000);
-      operation = await ai.operations.getVideosOperation({ operation: operation });
+  const imageResponse = (await withRetry(() => ai.models.generateContent({
+    model: 'gemini-2.5-flash-image',
+    contents: { parts: imageParts },
+    config: { imageConfig: { aspectRatio: "1:1" } }
+  }))) as GenerateContentResponse;
+
+  const postText = textResponse.text || `Potencia tu negocio con ${userInput}.`;
+  const part = imageResponse.candidates?.[0]?.content?.parts.find(p => p.inlineData);
+  const imageUrl = part?.inlineData ? `data:image/png;base64,${part.inlineData.data}` : "";
+
+  return { imageUrl, postText };
+}
+
+export async function generateFivePacks(userInput: string, onProgress?: (index: number) => void, referenceImage?: { data: string, mimeType: string }): Promise<MarketingPack[]> {
+  const styles = ["Luxury Minimalist", "Cyberpunk Tech", "Warm Organic", "Bold Corporate", "Elegant Editorial"];
+  const results: MarketingPack[] = [];
+  for (let i = 0; i < styles.length; i++) {
+    try {
+      const pack = await generateMarketingPack(userInput, styles[i], referenceImage);
+      results.push(pack);
+      if (onProgress) onProgress(i + 1);
+      await delay(2000); 
+    } catch (err) {
+      console.error(`Error en variante ${i}:`, err);
     }
-
-    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-    if (!downloadLink) throw new Error("No se pudo obtener el enlace del video");
-
-    const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
-    const blob = await videoResponse.blob();
-    return URL.createObjectURL(blob);
-  });
+  }
+  if (results.length === 0) throw new Error("No se pudieron generar creativos. API saturada.");
+  return results;
 }
 
 export async function handleObjection(objection: string, product: string): Promise<ObjectionResponse> {
-  const cleanObjection = await internalSanitize(objection);
-  
   return withRetry(async () => {
     const ai = getAI();
-    const prompt = `Eres un cerrador de ventas experto. Un cliente presenta la siguiente objeción para "${product}": "${cleanObjection}".
-    Proporciona una respuesta demoledora basada en técnicas de reencuadre psicológico.
-    Incluye el gatillo mental utilizado y un consejo para cerrar la venta inmediatamente.`;
-
-    const response = await ai.models.generateContent({
+    const response = (await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: prompt,
+      contents: `Vendedor experto: Objeción "${objection}" para "${product}". JSON con rebuttal, psychology, closingTip.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -173,25 +142,17 @@ export async function handleObjection(objection: string, product: string): Promi
           required: ["rebuttal", "psychology", "closingTip"]
         }
       }
-    });
-    return JSON.parse(response.text || "{}") as ObjectionResponse;
+    })) as GenerateContentResponse;
+    return JSON.parse(cleanJsonResponse(response.text || "{}")) as ObjectionResponse;
   });
 }
 
 export async function generateVideoScript(product: string, goal: string): Promise<VideoScript> {
-  const cleanProduct = await internalSanitize(product);
-  
   return withRetry(async () => {
     const ai = getAI();
-    const prompt = `Crea un guion viral para un video corto (TikTok/Reels) diseñado para vender:
-    Producto: ${cleanProduct}
-    Objetivo: ${goal}
-    
-    Incluye un hook de 3 segundos, escenas con descripción visual y el audio sugerido. Tono comercial y enérgico en español.`;
-
-    const response = await ai.models.generateContent({
+    const response = (await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: prompt,
+      contents: `Script video 30s para ${product}. Objetivo: ${goal}. JSON con hook, scenes (visual, audio, duration), cta.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -214,64 +175,26 @@ export async function generateVideoScript(product: string, goal: string): Promis
           required: ["hook", "scenes", "cta"]
         }
       }
-    });
-    return JSON.parse(response.text || "{}") as VideoScript;
+    })) as GenerateContentResponse;
+    return JSON.parse(cleanJsonResponse(response.text || "{}")) as VideoScript;
   });
 }
 
-export async function generateMarketingPack(userInput: string, style: string, referenceImage?: { data: string, mimeType: string }): Promise<MarketingPack> {
+export async function generateMarketingVideo(productName: string): Promise<string> {
   return withRetry(async () => {
     const ai = getAI();
-    
-    const textPrompt = `Actúa como un experto en Growth Marketing. Crea un post de Instagram/Facebook para vender este concepto: "${userInput}".
-    Estilo de Marca: ${style}
-    El post debe incluir un titular gancho, 3 puntos de valor, emojis persuasivos y un Call to Action claro. Idioma: Español.`;
-
-    const textResponse = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: textPrompt
+    let operation = await ai.models.generateVideos({
+      model: 'veo-3.1-fast-generate-preview',
+      prompt: `Cinematic commercial for ${productName}. 1080p.`,
+      config: { numberOfVideos: 1, resolution: '1080p', aspectRatio: '16:9' }
     });
-    
-    const postText = textResponse.text || `🔥 ¡Atención! Descubre cómo ${userInput} puede cambiar tu realidad. 🚀`;
-
-    const imageParts: any[] = [{ 
-      text: `Professional advertising studio photography, high-end commercial aesthetic, ${style} lighting and mood. Subject: ${userInput}. 
-      Optimized for high engagement on social media. Clean, premium, 8k resolution.` 
-    }];
-    if (referenceImage) {
-      imageParts.push({ inlineData: referenceImage });
+    while (!operation.done) {
+      await delay(10000);
+      operation = await ai.operations.getVideosOperation({ operation: operation });
     }
-
-    const imageResponse = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: { parts: imageParts },
-      config: { imageConfig: { aspectRatio: "1:1" } }
-    });
-
-    const part = imageResponse.candidates?.[0]?.content?.parts.find(p => p.inlineData);
-    const imageUrl = part?.inlineData ? `data:image/png;base64,${part.inlineData.data}` : "";
-
-    return { imageUrl, postText };
+    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+    const res = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
   });
-}
-
-export async function generateFivePacks(userInput: string, referenceImage?: { data: string, mimeType: string }): Promise<MarketingPack[]> {
-  const cleanInput = await internalSanitize(userInput);
-  const styles = [
-    "minimalista de lujo (Luxury Minimalist)",
-    "vibrante y enérgico (Streetwear Style)",
-    "corporativo de alta gama (Premium Executive)",
-    "innovador y tecnológico (Futuristic Tech)",
-    "estilo de vida cálido y auténtico (Lifestyle Organic)"
-  ];
-
-  const promises = styles.map(style => 
-    generateMarketingPack(cleanInput, style, referenceImage).catch(err => {
-      console.error(`Error in pack ${style}:`, err);
-      return null;
-    })
-  );
-  
-  const results = await Promise.all(promises);
-  return results.filter((r): r is MarketingPack => r !== null);
 }

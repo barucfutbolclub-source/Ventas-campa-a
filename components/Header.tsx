@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { Language } from '../types';
 
 interface HeaderProps {
   onNavigate: (tab: 'home' | 'generator' | 'analytics' | 'images' | 'strategy' | 'video') => void;
@@ -8,8 +7,6 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ onNavigate, activeTab }) => {
-  const [lang, setLang] = React.useState<Language>('es-LA');
-
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass-morphism shadow-2xl">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -63,17 +60,6 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, activeTab }) => {
         </nav>
 
         <div className="flex items-center gap-4">
-          <div className="hidden sm:flex items-center bg-slate-800 rounded-full px-3 py-1 border border-slate-700">
-            <i className="fa-solid fa-earth-americas text-xs text-blue-400 mr-2"></i>
-            <select 
-              className="bg-transparent text-xs font-bold text-slate-300 outline-none cursor-pointer pr-1"
-              value={lang}
-              onChange={(e) => setLang(e.target.value as Language)}
-            >
-              <option value="es-LA">Español Latino</option>
-              <option value="en-US">English</option>
-            </select>
-          </div>
           <button 
             onClick={() => onNavigate('generator')}
             className="bg-blue-600 text-white px-4 lg:px-5 py-2 rounded-full text-sm lg:text-base font-semibold hover:bg-blue-700 transition-all shadow-lg shadow-blue-900/40 active:scale-95 whitespace-nowrap"

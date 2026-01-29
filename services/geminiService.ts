@@ -1,52 +1,99 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { SalesScriptRequest, GeneratedScript, MarketingPack, ObjectionResponse, VideoScript, Language } from "../types";
+import { SalesScriptRequest, GeneratedScript, MarketingPack, ObjectionResponse, VideoScript } from "../types";
 
+// Generamos una nueva instancia en cada llamada para asegurar el uso de la API KEY más reciente
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-/**
- * Automatically corrects and optimizes user input for spelling, grammar, 
- * and professional tone in Latin American Spanish.
- */
-async function sanitizeAndCorrect(text: string, lang: Language = 'es-LA'): Promise<string> {
-  if (!text || text.length < 3) return text;
-  const ai = getAI();
-  const prompt = `Actúa como un corrector de estilo experto en español latinoamericano. 
-  Corrige los errores ortográficos, gramaticales y de puntuación del siguiente texto, 
-  manteniendo el significado original pero haciéndolo sonar más profesional y fluido. 
-  Devuelve ÚNICAMENTE el texto corregido.
-  
-  Texto: "${text}"`;
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+/**
+ * Manejador centralizado de errores de la API.
+ */
+function handleApiError(error: any) {
+  const message = error.message || "";
+  const status = error.status || 0;
+  
+  console.error("Detalle del Error de API:", { message, status, full: error });
+
+  // Error 403 o PERMISSION_DENIED: Problemas de permisos del proyecto o facturación
+  if (message.includes("PERMISSION_DENIED") || message.includes("403") || message.includes("caller does not have permission")) {
+    if (window.aistudio) {
+      alert("Error de Permisos (403): Tu proyecto actual no tiene permisos para este modelo. Asegúrate de usar un proyecto con facturación habilitada para modelos avanzados.");
+      window.aistudio.openSelectKey();
+    }
+    return "Error de permisos: El proyecto no está autorizado para usar este modelo.";
+  }
+
+  // Error 404 o Requested entity was not found: Re-seleccionar llave
+  if (message.includes("Requested entity was not found.") || message.includes("404")) {
+    if (window.aistudio) {
+      window.aistudio.openSelectKey();
+    }
+    return "Modelo no encontrado o llave inválida.";
+  }
+  
+  if (message.includes("RESOURCE_EXHAUSTED") || message.includes("429")) {
+    return "Cuota de API agotada (429). Por favor, espera unos minutos o usa un proyecto con mayor límite.";
+  }
+
+  return message || "Ocurrió un error inesperado en la comunicación con la IA.";
+}
+
+async function withRetry<T>(fn: () => Promise<T>, maxRetries: number = 3): Promise<T> {
+  let lastError: any;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      const status = error.status || (error.message?.includes('429') ? 429 : 0);
+      
+      // Si es cuota agotada o error de servidor, reintentamos
+      if (status === 429 || status >= 500) {
+        const waitTime = Math.pow(2, i) * 2000;
+        await delay(waitTime);
+        continue;
+      }
+      
+      // Si es un error de permisos (403), no reintentamos y disparamos el selector
+      const handledMessage = handleApiError(error);
+      throw new Error(handledMessage);
+    }
+  }
+  throw new Error(handleApiError(lastError));
+}
+
+async function internalSanitize(text: string): Promise<string> {
+  if (!text || text.length < 5) return text;
+  
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: prompt,
+      contents: `Actúa como un corrector de estilo experto. Corrige la ortografía y gramática del siguiente texto en español, asegurándote de que suene profesional pero persuasivo. Devuelve exclusivamente el texto corregido: "${text}"`,
       config: { temperature: 0.1 }
     });
     return response.text?.trim() || text;
-  } catch (error) {
-    console.warn("Error en auto-corrección, usando texto original:", error);
+  } catch {
     return text;
   }
 }
 
 export async function generateSalesScript(request: SalesScriptRequest): Promise<GeneratedScript> {
-  const ai = getAI();
-  // Auto-correct inputs first
-  const cleanName = await sanitizeAndCorrect(request.productName);
-  const cleanAudience = await sanitizeAndCorrect(request.targetAudience);
+  const cleanName = await internalSanitize(request.productName);
   
-  const prompt = `Actúa como un experto mundial en copywriting y psicología de ventas.
-    Genera una estructura de ventas altamente persuasiva para el siguiente producto:
-    Producto: ${cleanName}
-    Audiencia: ${cleanAudience}
-    Beneficios: ${request.keyBenefits.join(", ")}
-    Tono: ${request.tone}
+  return withRetry(async () => {
+    const ai = getAI();
+    const prompt = `Actúa como un especialista en copywriting de respuesta directa y psicología del consumidor.
+      Genera un guion de ventas de alto impacto para:
+      Producto: ${cleanName}
+      Audiencia: ${request.targetAudience}
+      Beneficios Clave: ${request.keyBenefits.join(", ")}
+      Tono: ${request.tone}
 
-    El resultado debe estar en español latinoamericano moderno y ser extremadamente convincente.`;
+      Utiliza una estructura de ventas probada (como AIDA o PAS). El resultado debe ser en español y estar diseñado para MAXIMIZAR CONVERSIONES.`;
 
-  try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
@@ -65,20 +112,19 @@ export async function generateSalesScript(request: SalesScriptRequest): Promise<
     });
 
     return JSON.parse(response.text || "{}") as GeneratedScript;
-  } catch (error: any) {
-    handleApiError(error);
-    throw error;
-  }
+  });
 }
 
 export async function generateMarketingVideo(productName: string): Promise<string> {
-  const ai = getAI();
-  const cleanName = await sanitizeAndCorrect(productName);
-  const prompt = `A professional cinematic video showcasing a sleek AI dashboard generating sales copy for "${cleanName}". 
-  The screen shows words like 'Conversión Alta' and 'Ventas Optimizadas' appearing in Spanish. 
-  Modern office background, soft bokeh, high-end motion graphics, 1080p aesthetic, 4k quality look.`;
+  const cleanName = await internalSanitize(productName);
+  
+  return withRetry(async () => {
+    const ai = getAI();
+    const prompt = `A cinematic, high-end professional commercial video for "${cleanName}". 
+    The video shows a modern, sleek workspace with high-tech elements. 
+    Text overlays like 'Ventas Optimizadas' and 'Crecimiento Exponencial' appear in a smooth, professional font. 
+    1080p resolution, shallow depth of field, elegant motion graphics.`;
 
-  try {
     let operation = await ai.models.generateVideos({
       model: 'veo-3.1-fast-generate-preview',
       prompt: prompt,
@@ -90,7 +136,7 @@ export async function generateMarketingVideo(productName: string): Promise<strin
     });
 
     while (!operation.done) {
-      await new Promise(resolve => setTimeout(resolve, 10000));
+      await delay(10000);
       operation = await ai.operations.getVideosOperation({ operation: operation });
     }
 
@@ -100,21 +146,18 @@ export async function generateMarketingVideo(productName: string): Promise<strin
     const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
     const blob = await videoResponse.blob();
     return URL.createObjectURL(blob);
-  } catch (error: any) {
-    handleApiError(error);
-    throw error;
-  }
+  });
 }
 
 export async function handleObjection(objection: string, product: string): Promise<ObjectionResponse> {
-  const ai = getAI();
-  const cleanObjection = await sanitizeAndCorrect(objection);
-  const cleanProduct = await sanitizeAndCorrect(product);
+  const cleanObjection = await internalSanitize(objection);
   
-  const prompt = `Como experto en negociación, destruye esta objeción de venta para el producto "${cleanProduct}": "${cleanObjection}".
-  Usa técnicas de reencuadre y empatía. Explica la psicología aplicada. Idioma: Español Latinoamericano.`;
+  return withRetry(async () => {
+    const ai = getAI();
+    const prompt = `Eres un cerrador de ventas experto. Un cliente presenta la siguiente objeción para "${product}": "${cleanObjection}".
+    Proporciona una respuesta demoledora basada en técnicas de reencuadre psicológico.
+    Incluye el gatillo mental utilizado y un consejo para cerrar la venta inmediatamente.`;
 
-  try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
@@ -123,31 +166,29 @@ export async function handleObjection(objection: string, product: string): Promi
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            rebuttal: { type: Type.STRING, description: "La respuesta directa para el cliente." },
-            psychology: { type: Type.STRING, description: "Explicación del gatillo mental usado." },
-            closingTip: { type: Type.STRING, description: "Consejo rápido de cierre." }
+            rebuttal: { type: Type.STRING },
+            psychology: { type: Type.STRING },
+            closingTip: { type: Type.STRING }
           },
           required: ["rebuttal", "psychology", "closingTip"]
         }
       }
     });
     return JSON.parse(response.text || "{}") as ObjectionResponse;
-  } catch (error: any) {
-    handleApiError(error);
-    throw error;
-  }
+  });
 }
 
 export async function generateVideoScript(product: string, goal: string): Promise<VideoScript> {
-  const ai = getAI();
-  const cleanProduct = await sanitizeAndCorrect(product);
-  const cleanGoal = await sanitizeAndCorrect(goal);
+  const cleanProduct = await internalSanitize(product);
   
-  const prompt = `Crea un guion para un video corto (Reels/TikTok) de 30 segundos. 
-  Producto: ${cleanProduct}. Objetivo: ${cleanGoal}. 
-  Debe incluir un gancho (hook) demoledor. Idioma: Español Latinoamericano.`;
+  return withRetry(async () => {
+    const ai = getAI();
+    const prompt = `Crea un guion viral para un video corto (TikTok/Reels) diseñado para vender:
+    Producto: ${cleanProduct}
+    Objetivo: ${goal}
+    
+    Incluye un hook de 3 segundos, escenas con descripción visual y el audio sugerido. Tono comercial y enérgico en español.`;
 
-  try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
@@ -175,27 +216,31 @@ export async function generateVideoScript(product: string, goal: string): Promis
       }
     });
     return JSON.parse(response.text || "{}") as VideoScript;
-  } catch (error: any) {
-    handleApiError(error);
-    throw error;
-  }
+  });
 }
 
-export async function generateMarketingPack(prompt: string, referenceImage?: { data: string, mimeType: string }): Promise<MarketingPack> {
-  const ai = getAI();
-  const cleanPrompt = await sanitizeAndCorrect(prompt);
-  
-  const textPrompt = `Genera una publicación de redes sociales altamente persuasiva en español latino: "${cleanPrompt}".`;
+export async function generateMarketingPack(userInput: string, style: string, referenceImage?: { data: string, mimeType: string }): Promise<MarketingPack> {
+  return withRetry(async () => {
+    const ai = getAI();
+    
+    const textPrompt = `Actúa como un experto en Growth Marketing. Crea un post de Instagram/Facebook para vender este concepto: "${userInput}".
+    Estilo de Marca: ${style}
+    El post debe incluir un titular gancho, 3 puntos de valor, emojis persuasivos y un Call to Action claro. Idioma: Español.`;
 
-  try {
     const textResponse = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: textPrompt
     });
+    
+    const postText = textResponse.text || `🔥 ¡Atención! Descubre cómo ${userInput} puede cambiar tu realidad. 🚀`;
 
-    const postText = textResponse.text || "";
-    const imageParts: any[] = [{ text: `Marketing visual for: ${cleanPrompt}. High-end professional advertising photography.` }];
-    if (referenceImage) imageParts.push({ inlineData: referenceImage });
+    const imageParts: any[] = [{ 
+      text: `Professional advertising studio photography, high-end commercial aesthetic, ${style} lighting and mood. Subject: ${userInput}. 
+      Optimized for high engagement on social media. Clean, premium, 8k resolution.` 
+    }];
+    if (referenceImage) {
+      imageParts.push({ inlineData: referenceImage });
+    }
 
     const imageResponse = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
@@ -204,25 +249,29 @@ export async function generateMarketingPack(prompt: string, referenceImage?: { d
     });
 
     const part = imageResponse.candidates?.[0]?.content?.parts.find(p => p.inlineData);
-    return {
-      imageUrl: part?.inlineData ? `data:image/png;base64,${part.inlineData.data}` : "",
-      postText
-    };
-  } catch (error: any) {
-    handleApiError(error);
-    throw error;
-  }
+    const imageUrl = part?.inlineData ? `data:image/png;base64,${part.inlineData.data}` : "";
+
+    return { imageUrl, postText };
+  });
 }
 
-export async function generateFivePacks(prompt: string, referenceImage?: { data: string, mimeType: string }): Promise<MarketingPack[]> {
-  const variations = ["minimalista", "con mucha energía", "corporativo", "innovador", "emocional"];
-  const results = await Promise.all(variations.map(v => generateMarketingPack(`${prompt} - Estilo ${v}`, referenceImage).catch(() => null)));
+export async function generateFivePacks(userInput: string, referenceImage?: { data: string, mimeType: string }): Promise<MarketingPack[]> {
+  const cleanInput = await internalSanitize(userInput);
+  const styles = [
+    "minimalista de lujo (Luxury Minimalist)",
+    "vibrante y enérgico (Streetwear Style)",
+    "corporativo de alta gama (Premium Executive)",
+    "innovador y tecnológico (Futuristic Tech)",
+    "estilo de vida cálido y auténtico (Lifestyle Organic)"
+  ];
+
+  const promises = styles.map(style => 
+    generateMarketingPack(cleanInput, style, referenceImage).catch(err => {
+      console.error(`Error in pack ${style}:`, err);
+      return null;
+    })
+  );
+  
+  const results = await Promise.all(promises);
   return results.filter((r): r is MarketingPack => r !== null);
-}
-
-function handleApiError(error: any) {
-  if (error.message?.includes("Requested entity was not found.") && window.aistudio) {
-    window.aistudio.openSelectKey();
-  }
-  console.error("API Error:", error);
 }

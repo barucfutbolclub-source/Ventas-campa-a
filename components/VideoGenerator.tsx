@@ -34,7 +34,11 @@ const VideoGenerator: React.FC = () => {
       const url = await generateMarketingVideo(productName);
       setVideoUrl(url);
     } catch (err: any) {
-      setError(err.message || "Error al generar el video publicitario.");
+      let msg = err.message || "Error al generar el video publicitario.";
+      if (msg.includes("403") || msg.includes("permisos")) {
+        msg = "Error 403: El modelo Veo requiere un proyecto de pago. Selecciona una llave vinculada a un proyecto con facturación activa.";
+      }
+      setError(msg);
     } finally {
       clearInterval(stepInterval);
       setLoading(false);
@@ -80,9 +84,10 @@ const VideoGenerator: React.FC = () => {
       )}
 
       {error && (
-        <div className="bg-red-950/20 text-red-400 p-6 rounded-2xl border border-red-900/50 text-center animate-in zoom-in duration-300">
-          <i className="fa-solid fa-triangle-exclamation text-2xl mb-2"></i>
-          <p>{error}</p>
+        <div className="bg-rose-950/20 text-rose-400 p-8 rounded-2xl border border-rose-900/50 text-center animate-in zoom-in duration-300">
+          <i className="fa-solid fa-circle-exclamation text-3xl mb-4"></i>
+          <p className="font-bold text-lg mb-2">{error}</p>
+          <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="text-xs text-rose-300 underline underline-offset-4">Aprende sobre facturación en Google AI Studio</a>
         </div>
       )}
 
@@ -105,30 +110,6 @@ const VideoGenerator: React.FC = () => {
                 <i className="fa-solid fa-download"></i> Descargar MP4
               </a>
             </div>
-          </div>
-          <div className="mt-8 text-center">
-            <h3 className="text-2xl font-bold text-white mb-2">Tu Video está Listo</h3>
-            <p className="text-slate-400">Este video muestra la facilidad de uso y los resultados de alta conversión de tu marca.</p>
-          </div>
-        </div>
-      )}
-
-      {!loading && !videoUrl && !error && (
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
-            <i className="fa-solid fa-wand-magic-sparkles text-indigo-500 text-2xl mb-4"></i>
-            <h4 className="text-white font-bold mb-2">Magia Visual</h4>
-            <p className="text-slate-500 text-sm">Convertimos tu idea en una pieza publicitaria de nivel profesional.</p>
-          </div>
-          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
-            <i className="fa-solid fa-bolt text-amber-500 text-2xl mb-4"></i>
-            <h4 className="text-white font-bold mb-2">Alta Conversión</h4>
-            <p className="text-slate-500 text-sm">Diseñado para captar la atención en los primeros 3 segundos.</p>
-          </div>
-          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
-            <i className="fa-solid fa-robot text-emerald-500 text-2xl mb-4"></i>
-            <h4 className="text-white font-bold mb-2">Impulsado por Veo</h4>
-            <p className="text-slate-500 text-sm">Utilizamos la tecnología de video generativo más avanzada de Google.</p>
           </div>
         </div>
       )}

@@ -94,16 +94,16 @@ const StrategySuite: React.FC = () => {
                 <h4 className="text-blue-400 font-bold mb-4 flex items-center gap-2">
                   <i className="fa-solid fa-comment-dots"></i> RESPUESTA SUGERIDA:
                 </h4>
-                <p className="text-xl text-white italic leading-relaxed">"{result.rebuttal}"</p>
+                <p className="text-xl text-white italic leading-relaxed whitespace-pre-wrap">"{result.rebuttal}"</p>
               </div>
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-                  <h5 className="text-sm font-bold text-slate-500 mb-2">PSICOLOGÍA APLICADA</h5>
-                  <p className="text-slate-300 text-sm leading-relaxed">{result.psychology}</p>
+                  <h5 className="text-sm font-bold text-slate-500 mb-2">ANÁLISIS ESTRATÉGICO</h5>
+                  <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{result.psychology}</p>
                 </div>
                 <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-                  <h5 className="text-sm font-bold text-slate-500 mb-2">TIP DE CIERRE</h5>
-                  <p className="text-slate-300 text-sm leading-relaxed">{result.closingTip}</p>
+                  <h5 className="text-sm font-bold text-slate-500 mb-2">CONSEJO DE CIERRE</h5>
+                  <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{result.closingTip}</p>
                 </div>
               </div>
             </div>
@@ -112,9 +112,8 @@ const StrategySuite: React.FC = () => {
               <div className="bg-blue-600 p-6">
                 <h4 className="text-white font-black text-xl flex items-center gap-3">
                   <i className="fa-solid fa-magnet"></i> EL GANCHO (HOOK):
-                  <span className="bg-black/20 px-3 py-1 rounded-full text-xs ml-auto">0:00 - 0:03</span>
                 </h4>
-                <p className="text-white text-lg font-bold mt-2">{result.hook}</p>
+                <p className="text-white text-lg font-bold mt-2 whitespace-pre-wrap">{result.hook}</p>
               </div>
               <div className="p-8 space-y-6">
                 {result.scenes.map((scene, i) => (
@@ -127,11 +126,11 @@ const StrategySuite: React.FC = () => {
                         <span className="text-xs font-bold text-blue-500 uppercase tracking-widest">Visual</span>
                         <span className="text-[10px] text-slate-500">{scene.duration}</span>
                       </div>
-                      <p className="text-sm text-slate-300 bg-slate-800/50 p-3 rounded-lg border border-slate-800">{scene.visual}</p>
+                      <p className="text-sm text-slate-300 bg-slate-800/50 p-3 rounded-lg border border-slate-800 whitespace-pre-wrap">{scene.visual}</p>
                     </div>
                     <div className="flex-1 space-y-2">
-                      <span className="text-xs font-bold text-emerald-500 uppercase tracking-widest">Audio / Voz</span>
-                      <p className="text-sm text-slate-300 bg-emerald-900/10 p-3 rounded-lg border border-emerald-900/20">{scene.audio}</p>
+                      <span className="text-xs font-bold text-emerald-500 uppercase tracking-widest">Audio</span>
+                      <p className="text-sm text-slate-300 bg-emerald-900/10 p-3 rounded-lg border border-emerald-900/20 whitespace-pre-wrap">{scene.audio}</p>
                     </div>
                   </div>
                 ))}
@@ -139,7 +138,7 @@ const StrategySuite: React.FC = () => {
                   <div className="bg-blue-600/20 p-4 rounded-xl border border-blue-500/30 flex items-center justify-between">
                     <div>
                       <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Llamada a la Acción (CTA)</span>
-                      <p className="text-white font-bold">{result.cta}</p>
+                      <p className="text-white font-bold whitespace-pre-wrap">{result.cta}</p>
                     </div>
                     <i className="fa-solid fa-bullhorn text-blue-400 text-2xl"></i>
                   </div>
@@ -156,7 +155,7 @@ const StrategySuite: React.FC = () => {
             <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
             <i className="fa-solid fa-brain absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-blue-500 animate-pulse"></i>
           </div>
-          <p className="text-slate-500 mt-4 font-medium">La IA está procesando la mejor respuesta estratégica...</p>
+          <p className="text-slate-500 mt-4 font-medium italic">Redactando la estrategia con precisión lingüística...</p>
         </div>
       )}
     </div>

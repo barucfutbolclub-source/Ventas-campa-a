@@ -43,7 +43,6 @@ const ImageGenerator: React.FC = () => {
       
       setPacks(results);
       
-      // Añadir al historial
       const newGen: MarketingGeneration = {
         id: crypto.randomUUID(),
         timestamp: Date.now(),
@@ -77,12 +76,12 @@ const ImageGenerator: React.FC = () => {
       <div className="lg:w-1/4 space-y-4 order-2 lg:order-1">
         <div className="bg-slate-900/50 p-6 rounded-3xl border border-slate-800">
           <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-            <i className="fa-solid fa-clock-rotate-left"></i> Historial Reciente
+            <i className="fa-solid fa-clock-rotate-left"></i> Historial
           </h3>
           
           <div className="space-y-3">
             {history.length === 0 ? (
-              <p className="text-xs text-slate-600 italic py-4 text-center">No hay generaciones previas</p>
+              <p className="text-xs text-slate-600 italic py-4 text-center">Sin registros aún</p>
             ) : (
               history.map((item) => (
                 <button 
@@ -105,7 +104,7 @@ const ImageGenerator: React.FC = () => {
 
       {/* Main Panel */}
       <div className="lg:w-3/4 space-y-8 order-1 lg:order-2">
-        <div className="bg-slate-900 p-8 rounded-3xl shadow-2xl border border-slate-800 relative overflow-hidden">
+        <div className="bg-slate-900 p-8 rounded-3xl shadow-2xl border border-slate-800">
           <form onSubmit={handleGenerate} className="space-y-6">
             <div className="flex flex-col md:flex-row gap-8">
               <div className="md:w-1/3">
@@ -114,15 +113,10 @@ const ImageGenerator: React.FC = () => {
                   className={`aspect-square rounded-3xl border-2 border-dashed transition-all cursor-pointer flex flex-col items-center justify-center relative overflow-hidden ${uploadedImage ? 'border-blue-500/50' : 'border-slate-700 hover:border-slate-500 bg-slate-800/20'}`}
                 >
                   {uploadedImage ? (
-                    <>
-                      <img src={`data:${uploadedImage.mimeType};base64,${uploadedImage.data}`} className="w-full h-full object-cover" alt="Ref" />
-                      <div className="absolute inset-0 bg-black/60 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity">
-                        <span className="text-xs font-bold text-white">CAMBIAR</span>
-                      </div>
-                    </>
+                    <img src={`data:${uploadedImage.mimeType};base64,${uploadedImage.data}`} className="w-full h-full object-cover" alt="Ref" />
                   ) : (
                     <div className="text-center p-4">
-                      <i className="fa-solid fa-cloud-arrow-up text-2xl text-slate-600 mb-2"></i>
+                      <i className="fa-solid fa-image text-2xl text-slate-600 mb-2"></i>
                       <p className="text-[10px] font-bold text-slate-500 uppercase">Referencia de Estilo</p>
                     </div>
                   )}
@@ -131,10 +125,10 @@ const ImageGenerator: React.FC = () => {
               </div>
 
               <div className="md:w-2/3 flex flex-col">
-                <label className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">¿Qué quieres vender?</label>
+                <label className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Producto / Concepto</label>
                 <textarea 
                   className="flex-grow p-6 rounded-2xl bg-slate-800 border border-slate-700 text-white focus:ring-2 focus:ring-blue-600 outline-none resize-none min-h-[140px]"
-                  placeholder="Describe tu producto o servicio con detalle..."
+                  placeholder="Describe qué quieres promocionar..."
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                 />
@@ -146,18 +140,7 @@ const ImageGenerator: React.FC = () => {
               disabled={loading || (!prompt && !uploadedImage)}
               className={`w-full py-5 rounded-2xl font-black text-white transition-all shadow-xl ${loading ? 'bg-slate-800 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 active:scale-95'}`}
             >
-              {loading ? (
-                <div className="flex items-center justify-center gap-3">
-                  <div className="flex gap-1">
-                    {[...Array(5)].map((_, i) => (
-                      <div key={i} className={`w-2 h-2 rounded-full ${i < progress ? 'bg-blue-500' : 'bg-slate-700 animate-pulse'}`}></div>
-                    ))}
-                  </div>
-                  <span>Generando Variante {progress + 1} de 5...</span>
-                </div>
-              ) : (
-                'GENERAR PACK ESTRATÉGICO'
-              )}
+              {loading ? `GENERANDO VARIANTE ${progress} / 5...` : 'GENERAR ESTRATEGIA VISUAL'}
             </button>
           </form>
         </div>
@@ -172,40 +155,32 @@ const ImageGenerator: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {packs.map((pack, idx) => (
             <div key={idx} className="bg-slate-900 rounded-[2rem] overflow-hidden border border-slate-800 shadow-2xl animate-in zoom-in duration-500">
-              <div className="aspect-square relative">
+              <div className="aspect-square">
                 <img src={pack.imageUrl} className="w-full h-full object-cover" alt="Ad" />
-                <div className="absolute top-4 left-4 bg-blue-600 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase shadow-lg">Variante {idx + 1}</div>
               </div>
               <div className="p-8 space-y-6">
-                <div className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800 text-sm text-slate-400 leading-relaxed max-h-40 overflow-y-auto">
+                <div className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800 text-sm text-slate-400 leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto">
                   {pack.postText}
                 </div>
                 <div className="flex gap-4">
                   <button 
                     onClick={() => copyToClipboard(pack.postText)}
-                    className="flex-1 py-3 bg-slate-800 rounded-xl text-[10px] font-black hover:bg-slate-700 transition-colors"
+                    className="flex-1 py-3 bg-slate-800 rounded-xl text-[10px] font-black hover:bg-slate-700 transition-colors uppercase"
                   >
-                    COPIAR COPY
+                    Copiar Texto
                   </button>
                   <a 
                     href={pack.imageUrl} 
-                    download={`marketing-ad-${idx}.png`}
-                    className="flex-1 py-3 bg-blue-600 rounded-xl text-[10px] font-black text-center hover:bg-blue-500 transition-colors"
+                    download={`ad-premium-${idx}.png`}
+                    className="flex-1 py-3 bg-blue-600 rounded-xl text-[10px] font-black text-center hover:bg-blue-500 transition-colors uppercase text-white"
                   >
-                    DESCARGAR
+                    Guardar Imagen
                   </a>
                 </div>
               </div>
             </div>
           ))}
         </div>
-
-        {!loading && packs.length === 0 && (
-          <div className="py-20 text-center border-2 border-dashed border-slate-800 rounded-[3rem] opacity-30">
-             <i className="fa-solid fa-wand-sparkles text-6xl mb-6"></i>
-             <p className="text-xl font-bold">Lanza tu próxima campaña en segundos</p>
-          </div>
-        )}
       </div>
     </div>
   );

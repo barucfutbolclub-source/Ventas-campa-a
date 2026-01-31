@@ -61,7 +61,7 @@ const AISalesGenerator: React.FC = () => {
   const copyToClipboard = (script: GeneratedScript) => {
     const text = `TITULAR: ${script.headline}\n\nCUERPO:\n${script.body}\n\nCTA: ${script.cta}`;
     navigator.clipboard.writeText(text);
-    alert('¡Copiado con éxito!');
+    alert('¡Copiado con éxito al portapapeles!');
   };
 
   return (
@@ -71,14 +71,14 @@ const AISalesGenerator: React.FC = () => {
       <div className="lg:w-1/4 space-y-4 order-2 lg:order-1">
         <div className="bg-slate-900/50 p-6 rounded-3xl border border-slate-800 backdrop-blur-sm sticky top-24">
           <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-            <i className="fa-solid fa-history text-blue-500"></i> Recientes
+            <i className="fa-solid fa-history text-blue-500"></i> Generaciones Recientes
           </h3>
           
           <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
             {history.length === 0 ? (
               <div className="text-center py-8 opacity-20">
                 <i className="fa-solid fa-folder-open text-4xl mb-2"></i>
-                <p className="text-[10px] font-bold uppercase">Sin historial</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest">Sin historial</p>
               </div>
             ) : (
               history.map((item) => (
@@ -106,23 +106,23 @@ const AISalesGenerator: React.FC = () => {
              <form onSubmit={handleSubmit} className="space-y-8">
                 <div className="grid md:grid-cols-2 gap-6">
                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">¿Qué vendes?</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">¿Qué deseas vender hoy?</label>
                       <input 
                         type="text"
                         required
-                        className="w-full px-6 py-4 rounded-2xl bg-slate-800/50 border border-slate-700 text-white focus:ring-2 focus:ring-blue-600 outline-none transition-all"
-                        placeholder="Nombre del producto..."
+                        className="w-full px-6 py-4 rounded-2xl bg-slate-800/50 border border-slate-700 text-white focus:ring-2 focus:ring-blue-600 outline-none transition-all placeholder:text-slate-600"
+                        placeholder="Ej: Curso de Marketing Digital"
                         value={formData.productName}
                         onChange={e => setFormData(prev => ({ ...prev, productName: e.target.value }))}
                       />
                    </div>
                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">¿A quién?</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">¿Quién es tu cliente ideal?</label>
                       <input 
                         type="text"
                         required
-                        className="w-full px-6 py-4 rounded-2xl bg-slate-800/50 border border-slate-700 text-white focus:ring-2 focus:ring-blue-600 outline-none transition-all"
-                        placeholder="Perfil del cliente..."
+                        className="w-full px-6 py-4 rounded-2xl bg-slate-800/50 border border-slate-700 text-white focus:ring-2 focus:ring-blue-600 outline-none transition-all placeholder:text-slate-600"
+                        placeholder="Ej: Dueños de pequeños negocios"
                         value={formData.targetAudience}
                         onChange={e => setFormData(prev => ({ ...prev, targetAudience: e.target.value }))}
                       />
@@ -130,15 +130,15 @@ const AISalesGenerator: React.FC = () => {
                 </div>
 
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Beneficios (Sé específico para mejor redacción)</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Beneficios Diferenciales (Puntos de valor)</label>
                   <div className="grid gap-3">
                     {formData.keyBenefits.map((benefit, idx) => (
                       <div key={idx} className="flex gap-2">
                         <input 
                           type="text"
                           required
-                          className="flex-grow px-6 py-3 rounded-xl bg-slate-800/50 border border-slate-700 text-white focus:ring-1 focus:ring-blue-600 outline-none text-sm"
-                          placeholder={`Punto fuerte #${idx + 1}`}
+                          className="flex-grow px-6 py-3 rounded-xl bg-slate-800/50 border border-slate-700 text-white focus:ring-1 focus:ring-blue-600 outline-none text-sm transition-all"
+                          placeholder={`Punto de valor #${idx + 1}`}
                           value={benefit}
                           onChange={e => handleBenefitChange(idx, e.target.value)}
                         />
@@ -154,14 +154,14 @@ const AISalesGenerator: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                  <button type="button" onClick={handleAddBenefit} className="text-[10px] font-black text-blue-500 hover:text-blue-400 uppercase tracking-widest flex items-center gap-2">
-                    <i className="fa-solid fa-plus-circle"></i> Añadir beneficio
+                  <button type="button" onClick={handleAddBenefit} className="text-[10px] font-black text-blue-500 hover:text-blue-400 uppercase tracking-widest flex items-center gap-2 transition-all">
+                    <i className="fa-solid fa-plus-circle"></i> Añadir beneficio adicional
                   </button>
                 </div>
 
                 <div className="flex flex-col md:flex-row gap-6 items-end">
                   <div className="flex-grow space-y-2 w-full">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tono</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tono de la Comunicación</label>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                       {['professional', 'aggressive', 'empathetic', 'humorous'].map((t) => (
                         <button
@@ -170,7 +170,7 @@ const AISalesGenerator: React.FC = () => {
                           onClick={() => setFormData(p => ({ ...p, tone: t as any }))}
                           className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all border ${formData.tone === t ? 'bg-blue-600 border-blue-500 text-white shadow-lg' : 'bg-slate-800/30 border-slate-700 text-slate-500 hover:bg-slate-800'}`}
                         >
-                          {t}
+                          {t === 'professional' ? 'Profesional' : t === 'aggressive' ? 'Directo' : t === 'empathetic' ? 'Empático' : 'Relajado'}
                         </button>
                       ))}
                     </div>
@@ -180,7 +180,7 @@ const AISalesGenerator: React.FC = () => {
                     disabled={loading || !formData.productName}
                     className={`w-full md:w-auto px-10 py-4 rounded-2xl font-black text-white transition-all shadow-xl ${loading ? 'bg-slate-800 cursor-not-allowed text-slate-500' : 'bg-blue-600 hover:bg-blue-500 active:scale-95'}`}
                   >
-                    {loading ? "REDACTANDO..." : "GENERAR COPY MAESTRO"}
+                    {loading ? "ESTRUCTURANDO COPY..." : "GENERAR COPY MAESTRO"}
                   </button>
                 </div>
              </form>
@@ -191,14 +191,14 @@ const AISalesGenerator: React.FC = () => {
             {loading ? (
               <div className="bg-slate-900/30 border border-slate-800 p-12 rounded-[2.5rem] flex flex-col items-center justify-center text-center animate-pulse">
                 <i className="fa-solid fa-brain text-blue-500 text-4xl mb-6 animate-bounce"></i>
-                <h3 className="text-xl font-bold text-white mb-2">Aplicando ingeniería de persuasión...</h3>
-                <p className="text-slate-500 text-sm">Garantizando gramática perfecta y ortografía impecable.</p>
+                <h3 className="text-xl font-bold text-white mb-2">Diseñando tu estrategia persuasiva...</h3>
+                <p className="text-slate-500 text-sm">Garantizando gramática perfecta y ortografía impecable de nivel experto.</p>
               </div>
             ) : result ? (
               <div className="bg-slate-900 rounded-[2.5rem] overflow-hidden border border-slate-800 shadow-2xl animate-in fade-in slide-in-from-bottom-6 duration-700">
                 <div className="bg-gradient-to-r from-blue-700 to-indigo-700 p-8">
-                   <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Titular de Impacto</span>
-                   <h2 className="text-2xl font-black text-white mt-1 leading-tight">{result.headline}</h2>
+                   <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Titular de Alto Impacto</span>
+                   <h2 className="text-2xl font-black text-white mt-1 leading-tight tracking-tight">{result.headline}</h2>
                 </div>
                 <div className="p-10 space-y-8">
                   <div className="relative">
@@ -209,14 +209,14 @@ const AISalesGenerator: React.FC = () => {
                   
                   <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
-                       <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Llamada a la Acción</span>
+                       <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Llamada a la Acción (CTA) Irresistible</span>
                        <p className="text-xl font-black text-blue-500">{result.cta}</p>
                     </div>
                     <button 
                       onClick={() => copyToClipboard(result)}
-                      className="px-8 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-black uppercase tracking-widest transition-all text-white"
+                      className="px-8 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-black uppercase tracking-widest transition-all text-white shadow-lg shadow-blue-900/40"
                     >
-                      Copiar Todo
+                      Copiar Estrategia Completa
                     </button>
                   </div>
                 </div>
@@ -225,6 +225,7 @@ const AISalesGenerator: React.FC = () => {
               <div className="h-full border-2 border-dashed border-slate-800 rounded-[2.5rem] flex flex-col items-center justify-center text-center p-12 opacity-40">
                 <i className="fa-solid fa-feather-pointed text-6xl mb-6"></i>
                 <p className="text-xl font-bold">Tu guión maestro aparecerá aquí</p>
+                <p className="text-sm mt-2">Completa el formulario para iniciar la magia del copywriting.</p>
               </div>
             )}
           </div>
